@@ -39,12 +39,26 @@ int onebyte_release(struct inode *inode, struct file *filep)
 
 ssize_t onebyte_read(struct file *filep, char *buf, size_t count, loff_t *f_pos)
 {
-/*please complete the function on your own*/
+	static int finished = 0;
+	if (finished || onebyte_data == NULL || count == 0) {
+		finished = 0;
+		return 0;
+	}
+	finished = 1;
+	put_user(*onebyte_data, buf);
+	return 1;
 }
 
 ssize_t onebyte_write(struct file *filep, const char *buf, size_t count, loff_t *f_pos)
 {
-/*please complete the function on your own*/
+	if (!count) {
+		return 0;
+	}
+	get_user(*onebyte_data, buf);
+	if (count > 1) {
+		printk(KERN_ERR "Write error: No space left on device\n");
+	}
+	return count;
 }
 
 static int onebyte_init(void)
