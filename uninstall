@@ -1,0 +1,5 @@
+#!/bin/bash
+
+rmmod onebyte 
+rm -rf /dev/onebyte 
+make clean

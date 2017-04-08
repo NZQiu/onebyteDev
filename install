@@ -1,0 +1,5 @@
+#!/bin/bash
+
+make
+insmod ./onebyte.ko 
+mknod /dev/onebyte c 61 0
