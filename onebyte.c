@@ -9,6 +9,7 @@
 #include <asm/uaccess.h>
 
 #define MAJOR_NUMBER 61
+#define MAX_SIZE 4194304
 
 /* forward declaration */
 int onebyte_open(struct inode *inode, struct file *filep);
@@ -25,7 +26,8 @@ struct file_operations onebyte_fops = {
 	release: onebyte_release
 };
 
-char *onebyte_data = NULL;
+char *data = NULL;
+int size_of_data;
 
 int onebyte_open(struct inode *inode, struct file *filep)
 {
@@ -40,25 +42,30 @@ int onebyte_release(struct inode *inode, struct file *filep)
 ssize_t onebyte_read(struct file *filep, char *buf, size_t count, loff_t *f_pos)
 {
 	static int finished = 0;
-	if (finished || onebyte_data == NULL || count == 0) {
+	if (finished) {
 		finished = 0;
 		return 0;
 	}
 	finished = 1;
-	put_user(*onebyte_data, buf);
-	return 1;
+
+	if (copy_to_user(buf, data, size_of_data)) {
+		return -EFAULT;
+	}
+	return size_of_data;
 }
 
 ssize_t onebyte_write(struct file *filep, const char *buf, size_t count, loff_t *f_pos)
 {
-	if (!count) {
-		return 0;
+	if (count > MAX_SIZE) {
+		size_of_data = MAX_SIZE;
+	} else {
+		size_of_data = count;
 	}
-	get_user(*onebyte_data, buf);
-	if (count > 1) {
-		printk(KERN_ERR "Write error: No space left on device\n");
-	}
-	return count;
+	if (copy_from_user(data, buf, size_of_data)) {
+		return -EFAULT;
+	} 
+	printk(KERN_INFO "procfs_write: write %lu bytes\n", size_of_data);
+	return size_of_data;
 }
 
 static int onebyte_init(void)
@@ -76,9 +83,9 @@ static int onebyte_init(void)
 	// the type of memory to be allocated.
 	// To release the memory allocated by kmalloc, use kfree.
 
-	onebyte_data = kmalloc(sizeof(char), GFP_KERNEL);
+	data = kmalloc(MAX_SIZE, GFP_KERNEL);
 
-	if (!onebyte_data) {
+	if (!data) {
 		onebyte_exit();
 		// cannot allocate memory
 		// return no memory error, negative signify a failure
@@ -86,7 +93,7 @@ static int onebyte_init(void)
 	}
 
 	// initialize the value to be X
-	*onebyte_data = 'X';
+	data[0] = '\0';
 	printk(KERN_ALERT "This is a onebyte device module\n");
 	return 0;
 
@@ -95,10 +102,10 @@ static int onebyte_init(void)
 static void onebyte_exit(void)
 {
 	// if the pointer is pointing to something
-	if (onebyte_data) {
+	if (data) {
 		// free the memory and assign the pointer to NULL
-		kfree(onebyte_data);
-		onebyte_data = NULL;
+		kfree(data);
+		data = NULL;
 	}
 
 	// unregister the device
