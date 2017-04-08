@@ -14,6 +14,9 @@
 #define SCULL_IOC_MAGIC 'k'
 #define SCULL_IOC_MAXNR 14
 #define SCULL_HELLO _IO(SCULL_IOC_MAGIC, 1)
+#define SCULL_MSG_WRITE _IOW(SCULL_IOC_MAGIC, 2, int)
+#define SCULL_MSG_READ _IOR(SCULL_IOC_MAGIC, 3, int)
+#define MAX_DEV_MSG 1024
 
 /* forward declaration */
 int onebyte_open(struct inode *inode, struct file *filep);
@@ -36,6 +39,8 @@ struct file_operations onebyte_fops = {
 
 char *data = NULL;
 int size_of_data;
+char dev_msg[MAX_DEV_MSG] = {'\0'};
+int dev_msg_size = 0;
 
 int onebyte_open(struct inode *inode, struct file *filep)
 {
@@ -117,6 +122,15 @@ long onebyte_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		case SCULL_HELLO:
 			printk(KERN_WARNING "hello\n");
 			break;
+	    	case SCULL_MSG_WRITE:
+	      		printk(KERN_WARNING "MSG WRITE: %d\n", arg);
+	      		dev_msg_size = strlen((char __user *) arg);
+	      		retval = copy_from_user(dev_msg, (char __user *) arg, dev_msg_size);
+	      		break;
+	    	case SCULL_MSG_READ:
+	      		printk(KERN_WARNING "MSG READ: %d\n", arg);
+	      		retval = copy_to_user((char __user *) arg, dev_msg, dev_msg_size);
+	      		break;
 		default:  /* redundant, as cmd was checked against MAXNR */
 			return -ENOTTY;
 	}
