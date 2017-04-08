@@ -16,6 +16,7 @@ int onebyte_open(struct inode *inode, struct file *filep);
 int onebyte_release(struct inode *inode, struct file *filep);
 ssize_t onebyte_read(struct file *filep, char *buf, size_t count, loff_t *f_pos);
 ssize_t onebyte_write(struct file *filep, const char *buf, size_t count, loff_t *f_pos);
+loff_t onebyte_llseek(struct file *filep, loff_t off, int whence);
 static void onebyte_exit(void);
 
 /* definition of file_operation structure */
@@ -23,7 +24,8 @@ struct file_operations onebyte_fops = {
 	read: onebyte_read,
 	write: onebyte_write,
 	open: onebyte_open,
-	release: onebyte_release
+	release: onebyte_release,
+	llseek: onebyte_llseek
 };
 
 char *data = NULL;
@@ -41,31 +43,45 @@ int onebyte_release(struct inode *inode, struct file *filep)
 
 ssize_t onebyte_read(struct file *filep, char *buf, size_t count, loff_t *f_pos)
 {
-	static int finished = 0;
-	if (finished) {
-		finished = 0;
-		return 0;
+	if (*f_pos >= size_of_data) {
+	    return 0;
 	}
-	finished = 1;
-
 	if (copy_to_user(buf, data, size_of_data)) {
 		return -EFAULT;
 	}
+	(*f_pos) += size_of_data;
 	return size_of_data;
 }
 
 ssize_t onebyte_write(struct file *filep, const char *buf, size_t count, loff_t *f_pos)
 {
-	if (count > MAX_SIZE) {
-		size_of_data = MAX_SIZE;
-	} else {
-		size_of_data = count;
-	}
+	size_of_data = count > MAX_SIZE ? MAX_SIZE : count;
 	if (copy_from_user(data, buf, size_of_data)) {
 		return -EFAULT;
 	} 
-	printk(KERN_INFO "procfs_write: write %lu bytes\n", size_of_data);
+	//printk(KERN_INFO "procfs_write: write %lu bytes\n", size_of_data);
 	return size_of_data;
+}
+
+loff_t onebyte_llseek(struct file *filep, loff_t f_pos, int whence)
+{
+	loff_t new_pos;
+	switch(whence) {
+		case 0: /* SEEK_SET */
+			new_pos = f_pos;
+			break;
+		case 1: /* SEEK_CUR */
+			new_pos = filep->f_pos + f_pos;
+			break;
+		case 2: /* SEEK_END */
+			new_pos = size_of_data + f_pos;
+			break;
+		default: /* Can't happen */
+			return -EINVAL;
+	}
+	if (new_pos < 0) return -EINVAL;
+	filep->f_pos = new_pos;
+	return new_pos;
 }
 
 static int onebyte_init(void)
