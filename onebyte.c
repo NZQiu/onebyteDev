@@ -54,24 +54,36 @@ int onebyte_release(struct inode *inode, struct file *filep)
 
 ssize_t onebyte_read(struct file *filep, char *buf, size_t count, loff_t *f_pos)
 {
+	printk(KERN_INFO "Read position: %d. Count: %d\n", *f_pos, count);
 	if (*f_pos >= size_of_data) {
-	    return 0;
+		printk(KERN_INFO "End of Output.\n");
+		return 0;
 	}
-	if (copy_to_user(buf, data, size_of_data)) {
+	int size_of_copy = (count > size_of_data) ? size_of_data : count;
+	if (copy_to_user(buf, data, size_of_copy)) {
 		return -EFAULT;
 	}
-	(*f_pos) += size_of_data;
-	return size_of_data;
+	(*f_pos) += size_of_copy;
+	return size_of_copy;
 }
 
 ssize_t onebyte_write(struct file *filep, const char *buf, size_t count, loff_t *f_pos)
 {
-	size_of_data = count > MAX_SIZE ? MAX_SIZE : count;
-	if (copy_from_user(data, buf, size_of_data)) {
+	printk(KERN_INFO "Write position: %d. Count: %d\n", *f_pos, count);
+	if (*f_pos >= MAX_SIZE) {
+		printk(KERN_INFO "End of Input.\n");
+		return -ENOSPC;
+	}
+	int size_of_copy = count > MAX_SIZE ? MAX_SIZE : count;
+	if (copy_from_user(data, buf, size_of_copy)) {
 		return -EFAULT;
 	} 
-	//printk(KERN_INFO "procfs_write: write %lu bytes\n", size_of_data);
-	return size_of_data;
+	if (*f_pos == 0) {
+		size_of_data = 0;
+	}
+	(*f_pos) += size_of_copy;
+	size_of_data += size_of_copy;
+	return size_of_copy;
 }
 
 loff_t onebyte_llseek(struct file *filep, loff_t f_pos, int whence)
@@ -152,7 +164,7 @@ static int onebyte_init(void)
 	// the type of memory to be allocated.
 	// To release the memory allocated by kmalloc, use kfree.
 
-	data = kmalloc(MAX_SIZE, GFP_KERNEL);
+	data = kmalloc(MAX_SIZE * sizeof(char), GFP_KERNEL);
 
 	if (!data) {
 		onebyte_exit();
