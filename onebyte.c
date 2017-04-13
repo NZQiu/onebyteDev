@@ -54,11 +54,11 @@ int onebyte_release(struct inode *inode, struct file *filep)
 
 ssize_t onebyte_read(struct file *filep, char *buf, size_t count, loff_t *f_pos)
 {
-	printk(KERN_INFO "Read position: %d. Count: %d\n", *f_pos, count);
 	if (*f_pos >= size_of_data) {
 		printk(KERN_INFO "End of Output.\n");
 		return 0;
 	}
+	printk(KERN_INFO "Read position: %d. Count: %d\n", *f_pos, count);
 	int size_of_copy = (count > size_of_data) ? size_of_data : count;
 	if (copy_to_user(buf, data, size_of_copy)) {
 		return -EFAULT;
@@ -69,11 +69,11 @@ ssize_t onebyte_read(struct file *filep, char *buf, size_t count, loff_t *f_pos)
 
 ssize_t onebyte_write(struct file *filep, const char *buf, size_t count, loff_t *f_pos)
 {
-	printk(KERN_INFO "Write position: %d. Count: %d\n", *f_pos, count);
 	if (*f_pos >= MAX_SIZE) {
-		printk(KERN_INFO "End of Input.\n");
+		printk(KERN_INFO "End of Input, total bytes written: %d\n", size_of_data);
 		return -ENOSPC;
 	}
+	printk(KERN_INFO "Write position: %d. Count: %d\n", *f_pos, count);
 	int size_of_copy = count > MAX_SIZE ? MAX_SIZE : count;
 	if (copy_from_user(data, buf, size_of_copy)) {
 		return -EFAULT;
