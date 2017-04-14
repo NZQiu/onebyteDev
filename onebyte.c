@@ -60,7 +60,7 @@ ssize_t onebyte_read(struct file *filep, char *buf, size_t count, loff_t *f_pos)
 	}
 	printk(KERN_INFO "Read position: %d. Count: %d\n", *f_pos, count);
 	int size_of_copy = (count > size_of_data) ? size_of_data : count;
-	if (copy_to_user(buf, data, size_of_copy)) {
+	if (copy_to_user(buf, data + *f_pos, size_of_copy)) {
 		return -EFAULT;
 	}
 	(*f_pos) += size_of_copy;
@@ -74,13 +74,11 @@ ssize_t onebyte_write(struct file *filep, const char *buf, size_t count, loff_t 
 		return -ENOSPC;
 	}
 	printk(KERN_INFO "Write position: %d. Count: %d\n", *f_pos, count);
-	int size_of_copy = count > MAX_SIZE ? MAX_SIZE : count;
-	if (copy_from_user(data, buf, size_of_copy)) {
+	int size_of_copy = count + size_of_data > MAX_SIZE ? MAX_SIZE - size_of_data : count;
+	if (copy_from_user(data + *f_pos, buf, size_of_copy)) {
 		return -EFAULT;
-	} 
-	if (*f_pos == 0) {
-		size_of_data = 0;
 	}
+	if (*f_pos == 0) size_of_data = 0;
 	(*f_pos) += size_of_copy;
 	size_of_data += size_of_copy;
 	return size_of_copy;

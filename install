@@ -3,3 +3,4 @@
 make
 insmod ./onebyte.ko 
 mknod /dev/onebyte c 61 0
+chmod 666 /dev/onebyte
